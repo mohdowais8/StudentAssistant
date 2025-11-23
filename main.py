@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, filedialog
 import wikipedia
 import random
+from fpdf import FPDF
 
 # ---------------- Helper Functions ----------------
 def fetch_wiki_summary(topic):
@@ -43,74 +44,103 @@ def generate_pro_tips(topic):
     ]
     return "💡 Pro Tips:\n" + "-"*40 + "\n" + "\n".join(tips)
 
+# ---------------- PDF Export ----------------
+def save_as_pdf(content, filename="BharatGPT_Notes.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_font("Arial", size=12)
+    for line in content.split('\n'):
+        pdf.multi_cell(0, 6, line)
+    pdf.output(filename)
+    messagebox.showinfo("Saved", f"Content saved as {filename}")
+
 # ---------------- GUI Functions ----------------
-def make_notes():
-    topic = topic_entry.get().strip()
-    if not topic:
-        messagebox.showerror("Error", "Topic cannot be empty!")
-        return
-    output_box.delete(1.0, tk.END)
+def process_single_topic(topic, action):
     summary = fetch_wiki_summary(topic)
-    notes = generate_notes(summary)
-    output_box.insert(tk.END, notes)
+    if action == "notes":
+        return generate_notes(summary)
+    elif action == "summary":
+        return f"📝 Summary of {topic}\n\n{summary}"
+    elif action == "quiz":
+        return generate_quiz(topic)
+    elif action == "tips":
+        return generate_pro_tips(topic)
+    else:
+        return summary
 
-def make_summary():
-    topic = topic_entry.get().strip()
-    if not topic:
+def run_action(action):
+    topics = topic_entry.get().strip()
+    if not topics:
         messagebox.showerror("Error", "Topic cannot be empty!")
         return
     output_box.delete(1.0, tk.END)
-    summary = fetch_wiki_summary(topic)
-    output_box.insert(tk.END, f"📝 Summary of {topic}\n\n{summary}")
+    all_topics = [t.strip() for t in topics.split(',') if t.strip()]
+    final_output = ""
+    for t in all_topics:
+        final_output += process_single_topic(t, action) + "\n\n"
+    output_box.insert(tk.END, final_output)
 
-def make_quiz():
-    topic = topic_entry.get().strip()
-    if not topic:
-        messagebox.showerror("Error", "Topic cannot be empty!")
+def save_output_pdf():
+    content = output_box.get(1.0, tk.END).strip()
+    if not content:
+        messagebox.showerror("Error", "Nothing to save!")
         return
-    output_box.delete(1.0, tk.END)
-    quiz = generate_quiz(topic)
-    output_box.insert(tk.END, quiz)
+    file_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files","*.pdf")])
+    if file_path:
+        save_as_pdf(content, file_path)
 
-def make_pro_tips():
-    topic = topic_entry.get().strip()
-    if not topic:
-        messagebox.showerror("Error", "Topic cannot be empty!")
-        return
-    output_box.delete(1.0, tk.END)
-    tips = generate_pro_tips(topic)
-    output_box.insert(tk.END, tips)
+def toggle_dark_mode():
+    if root["bg"] == "white":
+        root.config(bg="#2e2e2e")
+        output_box.config(bg="#3b3b3b", fg="white", insertbackground="white")
+        labels = [title_label, topic_label]
+        for l in labels:
+            l.config(bg="#2e2e2e", fg="white")
+    else:
+        root.config(bg="white")
+        output_box.config(bg="white", fg="black", insertbackground="black")
+        labels = [title_label, topic_label]
+        for l in labels:
+            l.config(bg="white", fg="black")
 
 # ---------------- GUI Setup ----------------
 root = tk.Tk()
-root.title("BharatGPT - Wikipedia Student Assistant")
-root.geometry("700x700")
+root.title("BharatGPT - Pro Student Assistant")
+root.geometry("750x750")
+root.config(bg="white")
 
-title_label = tk.Label(root, text="BharatGPT - Wikipedia Notes Generator", font=("Arial", 16, "bold"))
+title_label = tk.Label(root, text="BharatGPT - Pro Wikipedia Notes Generator", font=("Arial", 16, "bold"), bg="white")
 title_label.pack(pady=10)
 
-topic_label = tk.Label(root, text="Enter Topic:", font=("Arial", 12))
+topic_label = tk.Label(root, text="Enter Topic(s) (comma-separated):", font=("Arial", 12), bg="white")
 topic_label.pack()
 
-topic_entry = tk.Entry(root, width=50, font=("Arial", 12))
+topic_entry = tk.Entry(root, width=55, font=("Arial", 12))
 topic_entry.pack(pady=5)
 
-output_box = scrolledtext.ScrolledText(root, width=80, height=30, font=("Arial", 10))
+output_box = scrolledtext.ScrolledText(root, width=90, height=30, font=("Arial", 10))
 output_box.pack(pady=10)
 
-button_frame = tk.Frame(root)
+button_frame = tk.Frame(root, bg="white")
 button_frame.pack(pady=5)
 
-btn_notes = tk.Button(button_frame, text="Make Notes", width=15, command=make_notes)
+btn_notes = tk.Button(button_frame, text="Make Notes", width=15, command=lambda: run_action("notes"))
 btn_notes.grid(row=0, column=0, padx=5)
 
-btn_summary = tk.Button(button_frame, text="Summary", width=15, command=make_summary)
+btn_summary = tk.Button(button_frame, text="Summary", width=15, command=lambda: run_action("summary"))
 btn_summary.grid(row=0, column=1, padx=5)
 
-btn_quiz = tk.Button(button_frame, text="Quiz", width=15, command=make_quiz)
+btn_quiz = tk.Button(button_frame, text="Quiz", width=15, command=lambda: run_action("quiz"))
 btn_quiz.grid(row=0, column=2, padx=5)
 
-btn_tips = tk.Button(button_frame, text="Pro Tips", width=15, command=make_pro_tips)
+btn_tips = tk.Button(button_frame, text="Pro Tips", width=15, command=lambda: run_action("tips"))
 btn_tips.grid(row=0, column=3, padx=5)
+
+btn_save = tk.Button(button_frame, text="Save as PDF", width=15, command=save_output_pdf)
+btn_save.grid(row=1, column=1, pady=5)
+
+btn_dark = tk.Button(button_frame, text="Toggle Dark Mode", width=15, command=toggle_dark_mode)
+btn_dark.grid(row=1, column=2, pady=5)
 
 root.mainloop()
